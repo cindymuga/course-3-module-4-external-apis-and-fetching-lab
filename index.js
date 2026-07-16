@@ -1,83 +1,62 @@
-// index.js
-const weatherApi = "https://api.weather.gov/alerts/active?area="
+// html elements
+const input = document.getElementById('state-input');
+const btn = document.getElementById('fetch-alerts');
+const display = document.getElementById('alerts-display');
+const errDiv = document.getElementById('error-message');
 
-// get html elements
-const stateInput = document.getElementById('state-input');
-const fetchButton = document.getElementById('fetch-alerts');
-const alertsDisplay = document.getElementById('alerts-display');
-const errorMessage = document.getElementById('error-message');
+// listen for clicks
+btn.addEventListener('click', async () => {
+const state = input.value.trim().toUpperCase();
 
-function fetchWeatherAlerts(state) {
-  const url = `https://api.weather.gov/alerts/active?area=${state}`;
-
-  fetch(url)
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
-      }
-      return res.json();
-    })
-    .then(data => {
-      displayAlerts(data);
-    })
-    .catch(err => {
-      console.log(err.message);
-      showError(err);
-    });
+// empty check
+if (!state) {
+errDiv.textContent = "Please enter a state abbreviation.";
+errDiv.classList.remove('hidden');
+return;
 }
 
-function displayAlerts(data) {
-  alertsDisplay.innerHTML = '';
+// clear ui
+input.value = '';
+display.innerHTML = '';
+errDiv.textContent = '';
+errDiv.classList.add('hidden');
 
-  const summaryTitle = data.title || 'Weather Alerts';
-  const alertsList = data.features || [];
-  const alertCount = alertsList.length;
+// hit the api
+try {
+const res = await fetch(`https://api.weather.gov/alerts/active?area=${state}`);
 
-  const summaryHeading = document.createElement('h3');
-  summaryHeading.textContent = `${summaryTitle}: ${alertCount}`;
-  alertsDisplay.appendChild(summaryHeading);
-
-  if (alertCount === 0) {
-    const noAlerts = document.createElement('p');
-    noAlerts.textContent = 'No active alerts for this state.';
-    alertsDisplay.appendChild(noAlerts);
-    return;
-  }
-
-  const listElement = document.createElement('ul');
-
-  alertsList.forEach(alert => {
-    const headlineText = alert.properties?.headline || 'Weather Alert';
-    const listItem = document.createElement('li');
-    listItem.textContent = headlineText;
-    listElement.appendChild(listItem);
-  });
-
-  alertsDisplay.appendChild(listElement);
+if (!res.ok) {
+throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
 }
 
-function resetUI() {
-  alertsDisplay.innerHTML = '';
-  errorMessage.textContent = '';
-  errorMessage.classList.add('hidden');
+const data = await res.json();
+
+// update heading
+const title = document.createElement('h3');
+title.textContent = `${data.title}: ${data.features.length}`;
+display.appendChild(title);
+
+// zero alerts check
+if (data.features.length === 0) {
+const emptyMsg = document.createElement('p');
+emptyMsg.textContent = 'No active alerts for this state.';
+display.appendChild(emptyMsg);
+return;
 }
 
-function showError(error) {
-  errorMessage.textContent = error.message || 'Something went wrong.';
-  errorMessage.classList.remove('hidden');
+// make list
+const ul = document.createElement('ul');
+data.features.forEach(item => {
+const li = document.createElement('li');
+li.textContent = item.properties?.headline || "Weather Alert";
+ul.appendChild(li);
+});
+display.appendChild(ul);
+
+} catch (err) {
+// catch errors
+console.log(err.message);
+errDiv.textContent = err.message;
+errDiv.classList.remove('hidden');
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-  fetchButton.addEventListener('click', () => {
-    const stateCode = stateInput.value.trim().toUpperCase();
-
-    if (!stateCode) {
-      showError({ message: 'Please enter a state abbreviation.' });
-      return;
-    }
-
-    stateInput.value = '';
-    resetUI();
-    fetchWeatherAlerts(stateCode);
-  });
 });
